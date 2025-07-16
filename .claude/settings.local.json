@@ -10,7 +10,9 @@
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
