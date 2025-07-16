@@ -13,8 +13,11 @@ import {
 } from '@/utils/gameLogic'
 import { getAIMove } from '@/utils/ai'
 import { shouldCheat, performCheat, detectCheat } from '@/utils/cheating'
+import { useAuth } from './useAuth'
+import { updateUserStats } from '@/lib/db'
 
 export function useGameState() {
+  const { user } = useAuth()
   const [gameStats, setGameStats] = useState({
     totalGames: 0,
     wins: 0,
@@ -22,6 +25,7 @@ export function useGameState() {
     draws: 0,
     successfulDoubts: 0
   })
+  const [difficultyStats, setDifficultyStats] = useState<any>(null)
   
   const [gameStarted, setGameStarted] = useState(false)
   const [gameState, setGameState] = useState<GameState>({
@@ -130,51 +134,62 @@ export function useGameState() {
   }, [gameState.board, gameState.currentPlayer, gameState.isGameOver, gameState.difficulty, turn, updateGameState])
 
   const handleDoubt = useCallback(() => {
-    if (!lastCheat || gameState.currentPlayer !== 'black') return
+    if (!gameState.isPlayerTurn) return
 
-    // ダウト成功
-    const newBoard = createInitialBoard()
-    newBoard.forEach((row, rowIndex) => {
-      row.forEach((_, colIndex) => {
-        if (boardBeforeAI[rowIndex][colIndex]) {
-          newBoard[rowIndex][colIndex] = boardBeforeAI[rowIndex][colIndex]
-        }
-      })
-    })
-
-    // AIの石をすべて取る
-    newBoard.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        if (cell === 'white') {
-          newBoard[rowIndex][colIndex] = 'black'
-        }
-      })
-    })
-
-    setGameState(prev => ({
-      ...prev,
-      board: newBoard,
-      isGameOver: true,
-      winner: 'black',
-      doubtSuccess: prev.doubtSuccess + 1,
-      blackCount: 64,
-      whiteCount: 0
-    }))
-
-    setMessage('ダウト成功！ あなたの勝利です！')
-    
-    // 統計を更新
-    setGameStats(prev => {
-      const newStats = {
+    if (lastCheat) {
+      // ダウト成功！AIが不正をしていた - プレイヤーの勝利
+      setGameState(prev => ({
         ...prev,
-        totalGames: prev.totalGames + 1,
-        wins: prev.wins + 1,
-        successfulDoubts: prev.successfulDoubts + 1
+        isGameOver: true,
+        winner: 'black',
+        doubtSuccess: prev.doubtSuccess + 1
+      }))
+
+      setMessage('ダウト成功！ AIが不正をしていました！ あなたの勝利です！')
+      
+      // 統計を更新
+      setGameStats(prev => {
+        const newStats = {
+          ...prev,
+          totalGames: prev.totalGames + 1,
+          wins: prev.wins + 1,
+          successfulDoubts: prev.successfulDoubts + 1
+        }
+        localStorage.setItem('othelloStats', JSON.stringify(newStats))
+        return newStats
+      })
+      
+      // ログインユーザーの場合はDBにも保存
+      if (user) {
+        updateUserStats(user.id, 'win', true, gameState.difficulty)
       }
-      localStorage.setItem('othelloStats', JSON.stringify(newStats))
-      return newStats
-    })
-  }, [lastCheat, gameState.currentPlayer, boardBeforeAI])
+    } else {
+      // ダウト失敗！AIは正当な手を打っていた - プレイヤーの負け
+      setGameState(prev => ({
+        ...prev,
+        isGameOver: true,
+        winner: 'white'
+      }))
+
+      setMessage('ダウト失敗！ AIは正当な手を打っていました。あなたの負けです。')
+      
+      // 統計を更新
+      setGameStats(prev => {
+        const newStats = {
+          ...prev,
+          totalGames: prev.totalGames + 1,
+          losses: prev.losses + 1
+        }
+        localStorage.setItem('othelloStats', JSON.stringify(newStats))
+        return newStats
+      })
+      
+      // ログインユーザーの場合はDBにも保存
+      if (user) {
+        updateUserStats(user.id, 'loss', false, gameState.difficulty)
+      }
+    }
+  }, [lastCheat, gameState.isPlayerTurn, user])
 
   const startNewGame = useCallback((difficulty: Difficulty) => {
     const initialBoard = createInitialBoard()
@@ -211,36 +226,81 @@ export function useGameState() {
             localStorage.setItem('othelloStats', JSON.stringify(newStats))
             return newStats
           })
+          if (user) {
+            updateUserStats(user.id, 'win', gameState.doubtSuccess > 0, gameState.difficulty)
+          }
         } else if (result === 'loss') {
           setGameStats(prev => {
             const newStats = { ...prev, totalGames: prev.totalGames + 1, losses: prev.losses + 1 }
             localStorage.setItem('othelloStats', JSON.stringify(newStats))
             return newStats
           })
+          if (user) {
+            updateUserStats(user.id, 'loss', false, gameState.difficulty)
+          }
         } else if (result === 'draw') {
           setGameStats(prev => {
             const newStats = { ...prev, totalGames: prev.totalGames + 1, draws: prev.draws + 1 }
             localStorage.setItem('othelloStats', JSON.stringify(newStats))
             return newStats
           })
+          if (user) {
+            updateUserStats(user.id, 'draw', false, gameState.difficulty)
+          }
         }
       }
       
       updateStats()
     }
-  }, [gameState.isGameOver, gameState.winner, gameStarted])
+  }, [gameState.isGameOver, gameState.winner, gameStarted, user, gameState.doubtSuccess])
 
   // 統計の読み込み
   useEffect(() => {
-    const saved = localStorage.getItem('othelloStats')
-    if (saved) {
-      try {
-        setGameStats(JSON.parse(saved))
-      } catch (e) {
-        console.error('Failed to parse game stats:', e)
+    const loadStats = async () => {
+      if (user) {
+        // ログインユーザーの場合はDBから読み込み
+        try {
+          const { getUserStats, getUserDifficultyStats } = await import('@/lib/db')
+          console.log('Loading stats for user:', user.id)
+          const [stats, diffStats] = await Promise.all([
+            getUserStats(user.id),
+            getUserDifficultyStats(user.id)
+          ])
+          console.log('Loaded stats:', { stats, diffStats })
+          
+          if (stats) {
+            setGameStats({
+              totalGames: stats.totalGames,
+              wins: stats.wins,
+              losses: stats.losses,
+              draws: stats.draws,
+              successfulDoubts: stats.successfulDoubts
+            })
+          }
+          
+          if (diffStats) {
+            setDifficultyStats(diffStats)
+          }
+        } catch (error) {
+          console.error('Failed to load user stats:', error)
+        }
+      } else {
+        // 未ログインの場合はローカルストレージから読み込み
+        const saved = localStorage.getItem('othelloStats')
+        if (saved) {
+          try {
+            setGameStats(JSON.parse(saved))
+          } catch (e) {
+            console.error('Failed to parse game stats:', e)
+          }
+        }
+        // 未ログインユーザーは難易度別統計はnull
+        setDifficultyStats(null)
       }
     }
-  }, [])
+    
+    loadStats()
+  }, [user])
 
   // AI moves
   useEffect(() => {
@@ -254,6 +314,7 @@ export function useGameState() {
   return {
     gameState,
     gameStats,
+    difficultyStats,
     gameStarted,
     turn,
     message,

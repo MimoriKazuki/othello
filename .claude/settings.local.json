@@ -12,7 +12,13 @@
       "Bash(grep:*)",
       "Bash(npm run build:*)",
       "Bash(npx create-next-app:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(gh repo view:*)",
+      "Bash(npm run lint)",
+      "Bash(npx tsc:*)",
+      "Bash(true)",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

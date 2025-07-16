@@ -21,12 +21,18 @@ export default function GameOverModal({
 
   const isPlayerWin = winner === 'black'
   const isDraw = winner === 'draw'
+  const isDoubtWin = isPlayerWin && doubtSuccess > 0
+  const isDoubtLoss = !isPlayerWin && !isDraw && blackCount > 0 && whiteCount > 0
 
-  const shareText = isPlayerWin 
-    ? `ダウトオセロで勝利！🎉\n結果: ${blackCount} - ${whiteCount}\n${doubtSuccess > 0 ? `ダウト成功！ 🎯\n` : ''}`
+  const shareText = isDoubtWin
+    ? `【ダウトオセロ】\nAIの不正を見破った！🎯\n\n相手の不正を見抜く新感覚オセロゲーム！\nあなたもAIのズルを見破れるか？\n\nスコア: ${blackCount} - ${whiteCount}で勝利！`
+    : isPlayerWin 
+    ? `【ダウトオセロ】\n${blackCount} - ${whiteCount}で勝利！🎉\n\nAIが時々ズルをする新感覚オセロ！\n不正を見破れば一発逆転も！？\n\nあなたも挑戦してみませんか？`
+    : isDoubtLoss
+    ? `【ダウトオセロ】\nダウト失敗で敗北... 😱\n\nAIの正当な手を疑ってしまった！\n見極めが難しい新感覚オセロゲーム\n\nリベンジする？ ${blackCount} - ${whiteCount}`
     : isDraw
-    ? `ダウトオセロで引き分け！🤝\n結果: ${blackCount} - ${whiteCount}`
-    : `ダウトオセロで惜敗... 😢\n結果: ${blackCount} - ${whiteCount}`
+    ? `【ダウトオセロ】\n引き分け！🤝 ${blackCount} - ${whiteCount}\n\nAIが不正をする新感覚オセロ！\n次はダウトで一発逆転を狙おう！`
+    : `【ダウトオセロ】\n${blackCount} - ${whiteCount}で惜敗... 😢\n\nでもAIの不正を見破れば逆転可能！\n新感覚オセロで頭脳バトル！\n\n今すぐリベンジ！`
 
   const handleShare = (platform: string) => {
     const gameUrl = typeof window !== 'undefined' ? window.location.origin : ''
@@ -55,23 +61,19 @@ export default function GameOverModal({
           {isPlayerWin ? '勝利！' : isDraw ? '引き分け' : '敗北'}
         </h2>
         
-        {blackCount > 0 && whiteCount === 0 && isPlayerWin && (
-          <div className="text-center mb-4">
-            <p className="text-2xl font-bold text-white">
-              ダウト成功による勝利！
-            </p>
-          </div>
+        {isDoubtWin && (
+          <p className="text-center text-xl font-bold text-yellow-400 mb-6">
+            ダウト成功！
+          </p>
+        )}
+        
+        {isDoubtLoss && (
+          <p className="text-center text-xl font-bold text-red-400 mb-6">
+            ダウト失敗
+          </p>
         )}
         
         <div className="text-center mb-8">
-          <p className="text-2xl font-bold mb-6 text-gray-300">
-            {isPlayerWin 
-              ? 'おめでとうございます！' 
-              : isDraw 
-              ? '互角の勝負でした！' 
-              : 'もう一度挑戦しましょう！'}
-          </p>
-          
           <div className="bg-black rounded-2xl p-6 border border-gray-600">
             <div className="flex justify-center items-center gap-10 text-3xl font-black">
               <div className="text-center">
@@ -79,7 +81,7 @@ export default function GameOverModal({
                   <div className="w-16 h-16 bg-gray-900 rounded-full shadow-lg mb-2 border-2 border-gray-600"></div>
                   <span className="text-white text-4xl">{blackCount}</span>
                 </div>
-                <p className="text-base text-gray-400 font-semibold mt-2">あなた</p>
+                <p className="text-sm text-gray-400 mt-2">あなた</p>
               </div>
               
               <span className="text-gray-500 text-4xl">VS</span>
@@ -89,7 +91,7 @@ export default function GameOverModal({
                   <div className="w-16 h-16 bg-white border-4 border-gray-400 rounded-full shadow-lg mb-2"></div>
                   <span className="text-white text-4xl">{whiteCount}</span>
                 </div>
-                <p className="text-base text-gray-400 font-semibold mt-2">CPU</p>
+                <p className="text-sm text-gray-400 mt-2">CPU</p>
               </div>
             </div>
           </div>
