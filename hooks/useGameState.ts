@@ -105,7 +105,7 @@ export function useGameState() {
       let cheatAction: CheatAction | null = null
 
       if (shouldCheat(gameState.difficulty, turn)) {
-        const cheatResult = performCheat(gameState.board, aiMove, turn)
+        const cheatResult = performCheat(gameState.board, aiMove, turn, gameState.difficulty)
         newBoard = cheatResult.newBoard
         cheatAction = cheatResult.cheatAction
         setLastCheat(cheatAction)
@@ -145,7 +145,57 @@ export function useGameState() {
         doubtSuccess: prev.doubtSuccess + 1
       }))
 
-      setMessage('ダウト成功！ AIが不正をしていました！ あなたの勝利です！')
+      // ランダムな演出メッセージを選択
+      const messages = [
+        '🎉 ブラボー！AIの悪巧みを見破りました！あなたの完璧な勝利です！',
+        '🕵️ 名探偵登場！AIの不正を暴きました！真実はいつもひとつ！',
+        '⚔️ 正義の剣がAIの闇を断ち切った！あなたが真のチャンピオンです！',
+        '🎭 AI「バレたか…まさか気づかれるとは…」あなたの勝利です！',
+        '🎆 ダウト成功！AIが震え上がっています！完璧なプレイでした！',
+        '🏆 見事！AIのズルを発見！あなたの洞察力の勝利です！',
+        '🚀 AI「マサカ...人間に見破られるなんて...」大勝利です！',
+        '⚡ 電撃的勝利！AIの不正はあなたの前では無力でした！'
+      ]
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+      setMessage(randomMessage)
+      
+      // 勝利エフェクトを追加
+      if (typeof window !== 'undefined') {
+        // 背景を一瞬金色に
+        const body = document.body
+        body.style.transition = 'background-color 0.5s'
+        const originalBg = body.style.backgroundColor
+        body.style.backgroundColor = '#ffd700'
+        setTimeout(() => {
+          body.style.backgroundColor = originalBg
+        }, 500)
+        
+        // 紙吹雪エフェクト（簡易版）
+        for (let i = 0; i < 20; i++) {
+          const confetti = document.createElement('div')
+          confetti.textContent = ['🎉', '🎆', '✨', '🎊'][Math.floor(Math.random() * 4)]
+          confetti.style.position = 'fixed'
+          confetti.style.left = Math.random() * 100 + '%'
+          confetti.style.top = '-20px'
+          confetti.style.fontSize = '30px'
+          confetti.style.zIndex = '9999'
+          confetti.style.transition = 'all 2s ease-out'
+          confetti.style.pointerEvents = 'none'
+          document.body.appendChild(confetti)
+          
+          // アニメーション
+          setTimeout(() => {
+            confetti.style.top = '100vh'
+            confetti.style.transform = `rotate(${Math.random() * 720}deg)`
+            confetti.style.opacity = '0'
+          }, 10)
+          
+          // 削除
+          setTimeout(() => {
+            confetti.remove()
+          }, 2000)
+        }
+      }
       
       // 統計を更新
       setGameStats(prev => {
